@@ -110,38 +110,37 @@ async def list_command(ctx):
     else:
         await ctx.send("ℹ️ ไม่มีรายการคูลดาวน์ในห้องนี้ตอนนี้")
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=60)
 async def countdown_updater():
     now = datetime.datetime.now()
     for channel_id, items in list(cooldowns.items()):
         channel = bot.get_channel(channel_id)
         if not channel:
             continue
-
         for item in items[:]:
             name = item['name']
             end_time = item['end_time']
             msg = item['message']
-
             remaining = end_time - now
-            mins_left = int(remaining.total_seconds() // 60)
-            secs_left = int(remaining.total_seconds() % 60)
 
             if remaining.total_seconds() <= 0:
                 try:
-                    await msg.edit(content=f'✅ `{name}` คูลดาวน์เสร็จแล้ว!')
+                    # แจ้งเตือนว่าคูลดาวน์เสร็จแล้ว
                     await channel.send(f'✅ `{name}` คูลดาวน์เสร็จแล้ว!')
-                except discord.NotFound:
-                    pass
-                items.remove(item)
-            elif item.get('last_minute') != mins_left:
-                try:
-                    await msg.edit(content=f'⏳ `{name}` เหลือ {mins_left} นาที {secs_left} วินาที (จบ {end_time.strftime("%H:%M:%S")})')
-                    item['last_minute'] = mins_left
-                except discord.NotFound:
-                    items.remove(item)
-                except discord.HTTPException as e:
+                    # ลบข้อความเก่าที่แสดงเวลาคูลดาวน์
+                    await msg.delete()
+                except Exception as e:
                     print(f"เกิดข้อผิดพลาด: {e}")
+                items.remove(item)
+            else:
+                mins_left = int(remaining.total_seconds() // 60)
+                try:
+                    await msg.edit(content=f'⏳ `{name}` เหลือเวลาอีก {mins_left} นาที (สิ้นสุด {end_time.strftime("%H:%M:%S")})')
+                except discord.NotFound:
+                    # ถ้าข้อความถูกลบ ให้ลบคูลดาวน์นี้ออกด้วย
+                    items.remove(item)
+                except Exception as e:
+                    print(f"เกิดข้อผิดพลาดในการแก้ไขข้อความสำหรับ `{name}`: {e}")
 
         if not items:
             del cooldowns[channel_id]
