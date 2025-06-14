@@ -1,15 +1,25 @@
-# main.py
 import os
 import discord
 from discord.ext import commands, tasks
 import datetime
 import asyncio
-from myserver import app  # เผื่อ Flask ถูก import ที่อื่น
+from flask import Flask
+import threading
 
-# Intents สำหรับ Discord Bot
+# ====== Flask Keep-Alive ======
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "✅ Discord bot with cooldown is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# ====== Discord Bot Setup ======
 intents = discord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 DEFAULT_MINUTES = 15
@@ -137,7 +147,11 @@ async def countdown_updater():
         if not items:
             del cooldowns[channel_id]
 
-# Entry point
+# ====== Entry Point ======
+async def main():
+    threading.Thread(target=run_flask).start()
+    await bot.start(os.getenv("TOKEN") or "ใส่โทเค็นของคุณที่นี่")
+
 if __name__ == "__main__":
-    print("🚀 Starting Discord bot with Flask keep-alive...")
-    asyncio.run(bot.start(os.getenv('TOKEN')))
+    print("🚀 Starting bot with keep-alive web server...")
+    asyncio.run(main())
