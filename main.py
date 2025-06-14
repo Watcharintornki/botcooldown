@@ -78,6 +78,8 @@ async def c(ctx, *, arg):
 
         task = asyncio.create_task(countdown(ctx, name, minutes))
         active_tasks[user_id][name] = task
+        end_time = datetime.datetime.now() + datetime.timedelta(minutes=minutes)
+        task.end_time = end_time
 
     except Exception as e:
         await ctx.send(f'⚠️ เกิดข้อผิดพลาด: {str(e)}')
@@ -95,12 +97,31 @@ async def x(ctx, *, name):
     else:
         await ctx.send(f"ℹ️ ไม่พบคูลดาวน์ชื่อ `{name}` ที่กำลังทำงาน")
 
-@bot.command()
-async def list(ctx):
+@bot.command(name="list", aliases=["l", "รายการ"])
+async def list_command(ctx):
     user_id = ctx.author.id
+    now = datetime.datetime.now()
+
     if user_id in active_tasks and active_tasks[user_id]:
-        names = list(active_tasks[user_id].keys())
-        await ctx.send(f"📋 รายการคูลดาวน์ของคุณ: {', '.join(names)}")
+        names = []
+        for name in active_tasks[user_id].keys():
+            # ค้นหาเวลาที่เหลือ (จากข้อความเดิมเรายังไม่มีเก็บเวลาไว้)
+            # ดังนั้นเราจะปรับฟังก์ชัน countdown เพิ่มเวลาสิ้นสุดเข้าไปด้วย
+            task = active_tasks[user_id][name]
+            if hasattr(task, "end_time"):
+                remaining = task.end_time - now
+                if remaining.total_seconds() > 0:
+                    mins = int(remaining.total_seconds() // 60)
+                    names.append(f"- `{name}` เหลืออีก {mins} นาที")
+                else:
+                    names.append(f"- `{name}` หมดเวลาแล้ว")
+            else:
+                names.append(f"- `{name}` (ไม่สามารถระบุเวลาได้)")
+
+        if names:
+            await ctx.send(f"📋 คูลดาวน์ของคุณที่กำลังทำงานอยู่:\n" + "\n".join(names))
+        else:
+            await ctx.send("📭 คุณไม่มีคูลดาวน์ที่กำลังทำงานอยู่")
     else:
         await ctx.send("📭 คุณไม่มีคูลดาวน์ที่กำลังทำงานอยู่")
 
